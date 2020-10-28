@@ -30,10 +30,10 @@ TritSet::TritReference& TritSet::TritReference::operator=(const Trit & trit)
 
 TritSet::TritReference & TritSet::TritReference::operator=(const TritReference & tr)
 {
-	return this->operator=(tr());;
+	return this->operator=(tr);;
 }
 
-Trit TritSet::TritReference::operator&(const Trit & trit) const
+const Trit TritSet::TritReference::operator&(const Trit & trit) const
 {
 	Trit curr = this->operator()();
 
@@ -46,7 +46,7 @@ Trit TritSet::TritReference::operator&(const Trit & trit) const
 	return Trit::True;
 }
 
-Trit TritSet::TritReference::operator&(const TritReference & tr) const
+const Trit TritSet::TritReference::operator&(const TritReference & tr) const
 {
 	return this->operator&(tr());
 }
@@ -63,7 +63,7 @@ TritSet::TritReference& TritSet::TritReference::operator&=(const TritReference &
 	return *this;
 }
 
-Trit TritSet::TritReference::operator|(const Trit & trit) const
+const Trit TritSet::TritReference::operator|(const Trit & trit) const
 {
 	Trit curr = this->operator()();
 	
@@ -76,7 +76,7 @@ Trit TritSet::TritReference::operator|(const Trit & trit) const
 	return Trit::False;
 }
 
-Trit TritSet::TritReference::operator|(const TritReference & tr) const
+const Trit TritSet::TritReference::operator|(const TritReference & tr) const
 {
 	return this->operator|(tr());
 }
@@ -93,7 +93,7 @@ TritSet::TritReference& TritSet::TritReference::operator|=(const TritReference &
 	return *this;
 }
 
-Trit TritSet::TritReference::operator!() const
+const Trit TritSet::TritReference::operator!() const
 {
 	Trit trit = this->operator()();
 	switch (trit)
@@ -133,17 +133,27 @@ TritSet::TritReference::operator std::string() const
 
 void TritSet::realloc(const size_t newLenght)
 {
-	size_t prevSize = size;
-	uint * prevArr = arr;
+	size_t prevSize = this->size;
+	size_t prevLen = this->lenght;
+	uint * prevArr = this->arr;
 	
-	lenght = newLenght;
-	size = (newLenght + tritPerUint - 1) / tritPerUint;
-	arr = new uint[size];
+	this->lenght = newLenght;
+	this->size = (newLenght + tritPerUint - 1) / tritPerUint;
+	this->arr = new uint[size];
 	this->clear();
+	
+	std::cout << *this << std::endl;
 
 	size_t copySize = size > prevSize ? prevSize : size;
-	memcpy(arr, prevArr, 
+	
+
+	memcpy(this->arr, prevArr,
 		copySize * uintSize);
+
+	for (size_t i = prevLen; i < newLenght; ++i)
+		setTrit(i, Trit::Unknown);
+	
+	std::cout << *this << std::endl;
 
 	delete prevArr;
 }
@@ -154,12 +164,15 @@ inline void TritSet::setTrit(const size_t index, const Trit trit)
 	if (index >= lenght)
 		throw "In private function \"TritSet::setTrit(const size_t, const Trit)\": index out of range.";
 
-	if (changed == false && index > lastSetTrit)
+	if (changed == false && trit != Trit::Unknown)
 	{
 		lastSetTrit = index;
 		changed = true;
 	}
 	
+	if (index > lastSetTrit && trit != Trit::Unknown)
+		lastSetTrit = index;
+
 	const size_t arrIndex = index / tritPerUint;
 	const size_t cellOffset = (index % tritPerUint) * tritBitsRequired;
 	arr[arrIndex] ^= arr[arrIndex] & (tritMask << cellOffset);
@@ -169,6 +182,7 @@ inline void TritSet::setTrit(const size_t index, const Trit trit)
 TritSet::TritSet()
 {
 	lenght = 0;
+	initLenght = 0;
 	size = 0;
 	arr = NULL;
 	lastSetTrit = 0;
@@ -179,9 +193,10 @@ TritSet::TritSet()
 TritSet::TritSet(const size_t N)
 {
 	lenght = N;
+	initLenght = N;
 	size = (N + tritPerUint - 1) / tritPerUint; // вычисление кол-ва uint'ов, необходимого для N trit'ов
 	arr = new uint[size];
-	lastSetTrit = N - 1;
+	lastSetTrit = 0;
 	changed = false;
 	clear();
 }
@@ -191,7 +206,8 @@ TritSet::TritSet(uint * arr, const size_t lenght, const size_t size, bool doArrC
 	this->arr = arr;
 	this->lenght = lenght;
 	this->size = size;
-	this->lastSetTrit = lenght - 1;
+	this->lastSetTrit = 0;
+	this->initLenght = lenght;
 
 	if (doArrClear)
 	{
@@ -206,12 +222,26 @@ TritSet::TritSet(uint * arr, const size_t lenght, const size_t size, bool doArrC
 void TritSet::clear()
 {
 	for (size_t i = 0; i < lenght; ++i)
-		this->operator[](i) = Trit::Unknown;
+		setTrit(i, Trit::Unknown);
 }
 
 void LabTritSetSpace::TritSet::shrink()
 {
-	this->realloc(lastSetTrit + 1);
+	if (changed)
+		this->realloc(lastSetTrit + 1); 
+	else
+		this->realloc(initLenght);
+}
+
+void LabTritSetSpace::TritSet::trim(const size_t lastSetIndex)
+{
+	if (lastSetIndex >= lastSetTrit)
+		return;
+
+	for (size_t i = lastSetIndex; i <= this->lastSetTrit; ++i)
+		this->operator[](i) = Trit::Unknown;
+
+	this->lastSetTrit = lastSetIndex;
 }
 
 Trit TritSet::operator[](const size_t index) const
@@ -247,6 +277,41 @@ size_t LabTritSetSpace::TritSet::getSize() const
 size_t LabTritSetSpace::TritSet::getLastSetTrit() const
 {
 	return lastSetTrit;
+}
+
+size_t LabTritSetSpace::TritSet::cardinality(const Trit value) const
+{
+	
+	size_t counter = 0;
+
+	for (size_t i = 0; i <= lastSetTrit; ++i)
+		if (this->operator[](i) == value)
+			counter++;
+
+	if (value == Trit::Unknown)
+		counter += lenght - lastSetTrit - 1;
+
+	return counter;
+}
+
+std::unordered_map<Trit, size_t, std::hash<Trit>> LabTritSetSpace::TritSet::cardinality() const
+{
+	
+	std::unordered_map<Trit, size_t, std::hash<Trit>> map;
+	map[Trit::Unknown] = lenght - lastSetTrit - 1;
+
+	for (size_t i = 0; i <= lastSetTrit; ++i)
+	{
+		const Trit curr = this->operator[](i);
+		if (curr == Trit::False)
+			map[Trit::False]++;
+		else if (curr == Trit::True)
+			map[Trit::True]++;
+		else
+			map[Trit::Unknown]++;
+	}
+
+	return std::unordered_map<Trit, size_t, std::hash<Trit>>(map);
 }
 
 TritSet TritSet::operator&(const TritSet & set)

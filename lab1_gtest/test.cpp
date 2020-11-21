@@ -48,13 +48,13 @@ TEST(TritSet, getLenght)
 {
 	const size_t len = 16;
 	TritSet set(len);
-	EXPECT_EQ(set.getLenght(), len);
+	EXPECT_EQ(set.getLength(), len);
 
 	set[len] = Trit::Unknown;
-	EXPECT_EQ(set.getLenght(), len);
+	EXPECT_EQ(set.getLength(), len);
 
 	set[len] = Trit::True;
-	EXPECT_EQ(set.getLenght(), len + 1);
+	EXPECT_EQ(set.getLength(), len + 1);
 }
 
 TEST(TritSet, capacity)
@@ -174,7 +174,7 @@ TEST(TritSet, logicOperators)
 		set1[i] = Trit::True;
 
 	TritSet set3 = set1 & set2;
-	EXPECT_EQ(set3.getLenght(), set1.getLenght());
+	EXPECT_EQ(set3.getLength(), set1.getLength());
 	EXPECT_EQ(set3.capacity(), set1.capacity());
 
 	for (size_t i = 0; i < len; ++i)
@@ -186,7 +186,7 @@ TEST(TritSet, logicOperators)
 	}
 	
 	TritSet set4 = set1 | set2;
-	EXPECT_EQ(set4.getLenght(), set1.getLenght());
+	EXPECT_EQ(set4.getLength(), set1.getLength());
 	EXPECT_EQ(set4.capacity(), set1.capacity());
 	for (size_t i = 0; i < len; ++i)
 	{
@@ -197,7 +197,7 @@ TEST(TritSet, logicOperators)
 	}
 
 	TritSet set5 = !set2;
-	EXPECT_EQ(set5.getLenght(), set2.getLenght());
+	EXPECT_EQ(set5.getLength(), set2.getLength());
 	EXPECT_EQ(set5.capacity(), set2.capacity());
 	for (size_t i = 0; i < len; ++i)
 	{
@@ -215,18 +215,18 @@ TEST(TritSet, shrink)
 
 	size_t capacity = set.capacity();
 	set.shrink();
-	EXPECT_EQ(set.getLenght(), len);
+	EXPECT_EQ(set.getLength(), len);
 	EXPECT_EQ(set.capacity(), capacity);
 	
 	set[len * 2 - 1] = Trit::True;
-	EXPECT_EQ(set.getLenght(), len * 2);
+	EXPECT_EQ(set.getLength(), len * 2);
 
 	set.shrink();
-	EXPECT_EQ(set.getLenght(), len * 2);
+	EXPECT_EQ(set.getLength(), len * 2);
 
 	set[len * 2 - 2] = Trit::True;
 	set.shrink();
-	EXPECT_EQ(set.getLenght(), len * 2);
+	EXPECT_EQ(set.getLength(), len * 2);
 }
 
 TEST(TritSet, trim)
@@ -247,3 +247,56 @@ TEST(TritSet, trim)
 	EXPECT_EQ(set[3], Trit::Unknown);
 }
 
+TEST(TritSet, range_based_for)
+{
+	// using http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0184r0.html
+	// and https://en.cppreference.com/w/cpp/iterator/iterator
+
+	TritSet set(10);
+	set[9] = Trit::True;
+
+	set[10] = Trit::False;
+
+	int i = 0;
+	for (auto iter : set)
+	{
+		if(i == 9)
+			EXPECT_EQ(iter, Trit::True);
+		else if(i == 10)
+			EXPECT_EQ(iter, Trit::False);
+		else
+			EXPECT_EQ(iter, Trit::Unknown);
+		i++;
+	}
+	EXPECT_EQ(i, 11);
+
+	for (auto iter : set)
+		iter = Trit::True;
+	for (i = 0; i < 11; ++i)
+		EXPECT_EQ(set[i], Trit::True);
+
+	EXPECT_EQ(i, 11);
+}
+
+TritSet createSetWithMoving(LabTritSetSpace::uint **pointer)
+{
+	TritSet set(10);
+	*pointer = const_cast<uint*>(set.getArr());
+	return set; // moving constructor expected
+}
+
+TEST(TritSet, constructors)
+{
+	TritSet source(10); 
+	source[9] = Trit::False;
+	
+	TritSet dest = source; // copying expected
+	source[9] = Trit::True;
+	EXPECT_EQ(dest[9], Trit::False);
+	
+	dest = TritSet(10); // moving expected
+	uint * pointer = nullptr;
+
+	TritSet set(createSetWithMoving(&pointer)); // moving constructor expected
+	EXPECT_EQ(set.getArr(), pointer);
+}

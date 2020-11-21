@@ -25,29 +25,42 @@ TritSet::TritReference & TritSet::TritReference::operator=(const TritReference &
 	return this->operator=(Trit(tr));;
 }
 
-const Trit TritSet::TritReference::operator&(const Trit & trit) const
+Trit TritSet::TritReference::operator&(const Trit & trit) const
 {
 	return Trit(*this) & trit;
 }
 
-const Trit TritSet::TritReference::operator&(const TritReference & tr) const
+Trit TritSet::TritReference::operator&(const TritReference & tr) const
 {
 	return this->operator&(tr());
 }
 
-const Trit TritSet::TritReference::operator|(const Trit & trit) const
+Trit TritSet::TritReference::operator|(const Trit & trit) const
 {
 	return Trit(*this) | trit;
 }
 
-const Trit TritSet::TritReference::operator|(const TritReference & tr) const
+Trit TritSet::TritReference::operator|(const TritReference & tr) const
 {
 	return this->operator|(tr());
 }
 
-const Trit TritSet::TritReference::operator!() const
+Trit TritSet::TritReference::operator!() const
 {
 	return !Trit(*this);
+}
+
+TritSet::TritReference & LabTritSetSpace::TritSet::TritReference::operator++()
+{
+	index++;
+	return *this;
+}
+
+TritSet::TritReference LabTritSetSpace::TritSet::TritReference::operator++(int)
+{
+	TritSet::TritReference temp = *this;
+	++*this;
+	return temp;
 }
 
 Trit TritSet::TritReference::operator()() const
@@ -77,10 +90,10 @@ TritSet::TritReference::operator std::string() const
 void TritSet::expand(const size_t newLenght)
 {
 	size_t prevSize = this->size;
-	size_t prevLen = this->lenght;
+	size_t prevLen = this->length;
 	uint * prevArr = this->arr;
 	
-	this->lenght = newLenght;
+	this->length = newLenght;
 	this->size = (newLenght + tritPerUint - 1) / tritPerUint;
 	this->arr = new uint[size];
 	size_t copySize = size > prevSize ? prevSize : size;
@@ -100,7 +113,7 @@ inline void TritSet::setTrit(const size_t index, const Trit trit)
 	if ((index > lastSetTrit || lastSetTrit == -1) && trit == Trit::Unknown)
 		return;
 
-	if (index >= lenght)
+	if (index >= length)
 		expand(index + 1);
 	
 	if (index > lastSetTrit || lastSetTrit == -1) 
@@ -120,8 +133,8 @@ inline void TritSet::setTrit(const size_t index, const Trit trit)
 
 TritSet::TritSet()
 {
-	lenght = 0;
-	initLenght = 0;
+	length = 0;
+	initLength = 0;
 	size = 0;
 	arr = NULL;
 	lastSetTrit = -1;
@@ -129,8 +142,8 @@ TritSet::TritSet()
 
 TritSet::TritSet(const size_t N)
 {
-	lenght = N;
-	initLenght = N;
+	length = N;
+	initLength = N;
 	size = (N + tritPerUint - 1) / tritPerUint; // вычисление кол-ва uint'ов, необходимого для N trit'ов
 	arr = new uint[size];
 	lastSetTrit = -1;
@@ -138,19 +151,32 @@ TritSet::TritSet(const size_t N)
 
 LabTritSetSpace::TritSet::TritSet(TritSet & set)
 {
-	this->lenght = set.getLenght();
-	this->initLenght = set.getInitLenght();
+	this->length = set.getLength();
+	this->initLength = set.getInitLength();
 	this->size = set.getSize();
 	this->lastSetTrit = set.getLastSetTrit();
 
-	this->arr = new uint[this->lenght];
+	this->arr = new uint[this->length];
 	memcpy(arr, set.getArr(), size * uintSize);
+}
+
+LabTritSetSpace::TritSet::TritSet(TritSet && set) : TritSet(set)
+{
+	// initialing with constructor TritSet(TritSet&) allocates array
+	delete arr;
+	arr = set.arr;
+	set.arr = nullptr;
+}
+
+LabTritSetSpace::TritSet::~TritSet()
+{
+	delete arr;
 }
 
 void LabTritSetSpace::TritSet::shrink()
 {
 	if (lastSetTrit == -1)
-		expand(initLenght);
+		expand(initLength);
 	else
 		expand(lastSetTrit + 1);
 }
@@ -175,9 +201,9 @@ TritSet::TritReference TritSet::operator[](const size_t index)
 	return TritSet::TritReference(*this, index);
 }
 
-size_t TritSet::getLenght() const
+size_t TritSet::getLength() const
 {
-	return lenght;
+	return length;
 }
 
 size_t TritSet::capacity() const
@@ -195,9 +221,9 @@ size_t LabTritSetSpace::TritSet::getLastSetTrit() const
 	return lastSetTrit;
 }
 
-size_t LabTritSetSpace::TritSet::getInitLenght() const
+size_t LabTritSetSpace::TritSet::getInitLength() const
 {
-	return initLenght;
+	return initLength;
 }
 
 const uint * LabTritSetSpace::TritSet::getArr() const
@@ -215,7 +241,7 @@ size_t LabTritSetSpace::TritSet::cardinality(const Trit value) const
 			counter++;
 
 	if (value == Trit::Unknown)
-		counter += lenght - lastSetTrit - 1;
+		counter += length - lastSetTrit - 1;
 
 	return counter;
 }
@@ -224,18 +250,13 @@ std::unordered_map<Trit, size_t, std::hash<Trit>> LabTritSetSpace::TritSet::card
 {
 	
 	std::unordered_map<Trit, size_t, std::hash<Trit>> map;
-	map[Trit::Unknown] = lenght - lastSetTrit - 1;
+	map[Trit::Unknown] = length - lastSetTrit - 1;
 
 	if(lastSetTrit != -1)
 	for (size_t i = 0; i <= lastSetTrit; ++i)
 	{
 		const Trit curr = this->operator[](i);
-		if (curr == Trit::False)
-			map[Trit::False]++;
-		else if (curr == Trit::True)
-			map[Trit::True]++;
-		else
-			map[Trit::Unknown]++;
+		map[curr]++;
 	}
 
 	return std::unordered_map<Trit, size_t, std::hash<Trit>>(map);
@@ -243,7 +264,7 @@ std::unordered_map<Trit, size_t, std::hash<Trit>> LabTritSetSpace::TritSet::card
 
 TritSet LabTritSetSpace::TritSet::operator&(const TritSet & set) const
 {
-	const size_t len = set.getLenght() > this->lenght ? set.getLenght() : this->lenght;
+	const size_t len = set.getLength() > this->length ? set.getLength() : this->length;
 	TritSet result(len);
 
 	for (size_t i = 0; i < len; ++i)
@@ -254,7 +275,7 @@ TritSet LabTritSetSpace::TritSet::operator&(const TritSet & set) const
 
 TritSet LabTritSetSpace::TritSet::operator|(const TritSet & set) const
 {
-	const size_t len = set.getLenght() > this->lenght ? set.getLenght() : this->lenght;
+	const size_t len = set.getLength() > this->length ? set.getLength() : this->length;
 	TritSet result(len);
 
 	for (size_t i = 0; i < len; ++i)
@@ -265,12 +286,37 @@ TritSet LabTritSetSpace::TritSet::operator|(const TritSet & set) const
 
 TritSet LabTritSetSpace::TritSet::operator!() const
 {
-	TritSet result(this->lenght);
+	TritSet result(this->length);
 
-	for (size_t i = 0; i < this->lenght; ++i)
+	for (size_t i = 0; i < this->length; ++i)
 		result[i] = !this->operator[](i);
 
 	return TritSet(result);
+}
+
+TritSet & LabTritSetSpace::TritSet::operator=(TritSet && set)
+{
+	if (this == &set)
+		return *this;
+
+	delete arr;
+	length = set.length;
+	initLength = set.initLength;
+	size = set.size;
+	lastSetTrit = set.lastSetTrit;
+	arr = set.arr;
+
+	set.arr = nullptr;
+}
+
+TritSet::iterator LabTritSetSpace::TritSet::begin()
+{
+	return TritSet::iterator(TritSet::TritReference(*this, 0));
+}
+
+TritSet::iterator LabTritSetSpace::TritSet::end()
+{
+	return TritSet::iterator(TritSet::TritReference(*this, length));
 }
 
 Trit LabTritSetSpace::operator&(const Trit & tr1, const Trit & tr2)
@@ -329,7 +375,7 @@ std::ostream & LabTritSetSpace::operator<<(std::ostream & out, const TritSet::Tr
 
 std::ostream & LabTritSetSpace::operator<<(std::ostream & out, const TritSet & ts)
 {
-	size_t len = ts.getLenght();
+	size_t len = ts.getLength();
 	out << "[";
 	for (size_t i = 0; i < len; ++i)
 		out << ts[i] << (i == len - 1 ? "" : ", ");

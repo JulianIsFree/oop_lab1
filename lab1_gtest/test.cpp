@@ -293,10 +293,12 @@ TEST(TritSet, constructors)
 	TritSet dest = source; // copying expected
 	source[9] = Trit::True;
 	EXPECT_EQ(dest[9], Trit::False);
+	EXPECT_NE(source.getArr(), nullptr);
 	
-	dest = TritSet(10); // moving expected
-	uint * pointer = nullptr;
+	dest = std::move(source); // moving expected
+	EXPECT_EQ(source.getArr(), nullptr);
 
-	TritSet set(createSetWithMoving(&pointer)); // moving constructor expected
-	EXPECT_EQ(set.getArr(), pointer);
+	uint *pointer = nullptr;
+	TritSet movingConstructor(createSetWithMoving(&pointer));
+	EXPECT_EQ(pointer, movingConstructor.getArr());
 }

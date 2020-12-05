@@ -149,7 +149,7 @@ TritSet::TritSet(const size_t N)
 	lastSetTrit = -1;
 }
 
-LabTritSetSpace::TritSet::TritSet(TritSet & set)
+LabTritSetSpace::TritSet::TritSet(const TritSet & set)
 {
 	this->length = set.getLength();
 	this->initLength = set.getInitLength();
@@ -160,12 +160,10 @@ LabTritSetSpace::TritSet::TritSet(TritSet & set)
 	memcpy(arr, set.getArr(), size * uintSize);
 }
 
-LabTritSetSpace::TritSet::TritSet(TritSet && set) : TritSet(set)
+LabTritSetSpace::TritSet::TritSet(TritSet && set)
 {
 	// initialing with constructor TritSet(TritSet&) allocates array
-	delete arr;
-	arr = set.arr;
-	set.arr = nullptr;
+	*this = static_cast<TritSet&&>(set);
 }
 
 LabTritSetSpace::TritSet::~TritSet()
@@ -306,6 +304,10 @@ TritSet & LabTritSetSpace::TritSet::operator=(TritSet && set)
 	lastSetTrit = set.lastSetTrit;
 	arr = set.arr;
 
+	set.length = 0;
+	set.initLength = 0;
+	set.size = 0;
+	set.lastSetTrit = 0;
 	set.arr = nullptr;
 }
 

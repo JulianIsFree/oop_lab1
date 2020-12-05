@@ -87,7 +87,7 @@ namespace LabTritSetSpace
 	public:
 		TritSet();
 		TritSet(const size_t N);
-		TritSet(TritSet &set);
+		TritSet(const TritSet &set);
 		TritSet(TritSet &&set);
 		~TritSet();
 
